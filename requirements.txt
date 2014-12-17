@@ -1,0 +1,8 @@
+scipy
+ipython
+matplotlib
+pyzmq
+jinja2
+statsmodels
+pandas
+patsy
