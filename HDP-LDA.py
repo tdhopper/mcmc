@@ -336,6 +336,14 @@ def cleanup_topic(state, topic):
     state = sample_tau(state)
     return state
 
+
+def valid_state(state):
+    for topic, cnt in state['n']['topic'].items():
+        if topic in state['used_topics'] and cnt <= 0:
+            pretty(state)
+            raise Exception('Empty topic in state')
+    return True
+
 # ### Other Utilities
 
 # #### Stirling Numbers
@@ -394,13 +402,6 @@ def rand_antoniak(alpha, n):
     sample = choice(range(1, n+1), p=p)
     assert sample > 0
     return sample
-
-def valid_state(state):
-    for topic, cnt in state['n']['topic'].items():
-        if topic in state['used_topics'] and cnt <= 0:
-            pretty(state)
-            raise Exception('Empty topic in state')
-    return True
 
 def pretty(d, indent=0):
    for key, value in d.iteritems():
