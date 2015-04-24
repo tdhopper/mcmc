@@ -13,7 +13,7 @@ import nltk
 from nltk.corpus import stopwords
 
 
-def cleanupDoc(s):
+def prepare_doc(s):
     stopset = set(stopwords.words('english'))
     tokens = nltk.word_tokenize(s)
     cleanup = [token.lower() for token in tokens if token.lower() not in stopset and len(token) > 2]
@@ -113,7 +113,7 @@ DUMMY_TOPIC = -1
 
 def initialize(state, docs):
     state['num_topics'] = 2
-    state['docs'] = [cleanupDoc(doc) for doc in docs]
+    state['docs'] = [prepare_doc(doc) for doc in docs]
     state['vocabulary'] = set(more_itertools.flatten(state['docs']))
     state['num_docs'] = len(state['docs'])
     state['num_terms'] = len(state['vocabulary'])
@@ -139,7 +139,7 @@ def initialize(state, docs):
             state['ss']['doc'][doc_index] += 1
 
     tau_dimension = state['num_topics']
-    state['tau'] = {s: (1. / state['num_topics']) for s in range(state['num_topics'])}
+    state['tau'] = {s: (1. / state['num_topics']) for s in state['used_topics']}
     state['tau'][DUMMY_TOPIC] = state['tau'].values().pop()
     state['alpha'], state['beta'], state['gamma'] = 1, 1, 1
     topics = set(state['used_topics'])
@@ -151,8 +151,8 @@ def initialize(state, docs):
 
 
 def step(state):
-    for doc_index in range(state['num_docs']):
-        for word_index in range(state['ss']['doc'][doc_index]):
+    for doc_index, _ in enumerate(state['docs']):
+        for word_index, _ in enumerate(state['docs'][doc_index]):
             state = step_word(state, doc_index, word_index)
     assert valid_state(state)
     # TODO: if converged and L sampling iterations since last read out then
@@ -273,30 +273,30 @@ def sample_hyperparameters(state):
 
 
 def update_beta(state, a, b):
-    # http://bit.ly/1OnKGUb
-    i, m, M = 0, 0, 0
+    # http://bit.ly/1yX1cZq
+    i, m = 0, 0
     num_iterations = 200
-    M = state['num_docs']
-    K = state['num_topics']
     alpha = state['beta']
     alpha0 = 0
     prec = 1 ** -5
     for _ in range(num_iterations):
         summk = 0
         summ = 0
-        for m in range(M):
-            summ += digamma(K * alpha + state['ss']['doc'][m])
-            for k in range(K):
-                summk += digamma(alpha + state['ss']['document_topic'][m][k])
-        summ -= M * digamma(K * alpha)
-        summk -= M * K * digamma(alpha)
-        alpha = (a - 1 + alpha + summk) / (b + K * summ)
+        for doc_index, _ in enumerate(state['docs']):
+            summ += digamma(state['num_topics'] * alpha + state['ss']['doc'][doc_index])
+            for topic in state['used_topics']:
+                summk += digamma(alpha + state['ss']['document_topic'][doc_index][topic])
+        summ -= state['num_docs'] * digamma(state['num_topics'] * alpha)
+        summk -= state['num_docs'] * state['num_topics'] * digamma(alpha)
+        alpha = (a - 1 + alpha * summk) / (b + K * summ)
         assert not np.isnan(alpha)
         if abs(alpha - alpha0) < prec:
             break
         else:
             alpha0 = alpha
 
+        if i == num_iterations - 1:
+            raise Exception("update_beta did not converge.")
     state['beta'] = alpha
     return state
 
@@ -364,6 +364,7 @@ def cleanup_topic(state, topic):
     if (state['ss']['topic'][topic] > 0
             or topic not in state['used_topics']):
         return state
+
     state['used_topics'].remove(topic)
     state['unused_topics'].add(topic)
     assert sum(state['ss']['topic_term'][topic].values()) == 0
