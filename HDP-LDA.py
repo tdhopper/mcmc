@@ -11,11 +11,13 @@ import numpy as np
 
 import nltk
 from nltk.corpus import stopwords
+
+
 def cleanupDoc(s):
-     stopset = set(stopwords.words('english'))
-     tokens = nltk.word_tokenize(s)
-     cleanup = [token.lower() for token in tokens if token.lower() not in stopset and  len(token)>2]
-     return cleanup
+    stopset = set(stopwords.words('english'))
+    tokens = nltk.word_tokenize(s)
+    cleanup = [token.lower() for token in tokens if token.lower() not in stopset and len(token) > 2]
+    return cleanup
 
 # seed(1001)
 
@@ -30,7 +32,7 @@ docs = ["see spot run",
 #     \left\{\overrightarrow{w}\right\} & \equiv \text{Word Vectors} \\\
 # \end{array}
 #
-# ### Other
+# Other
 #
 # \begin{array}{rl}
 #      \alpha & \equiv \\\
@@ -58,7 +60,7 @@ docs = ["see spot run",
 #     V &\equiv \text{Number of terms t in vocabulary} \\\
 # \end{array}
 #
-# ### Outputs:
+# Outputs:
 #
 # \begin{array}{rl}
 #     \left\{\overrightarrow{z}\right\} & \equiv \text{topic associations} \\\
@@ -75,18 +77,18 @@ docs = ["see spot run",
 K_MAX = 100
 
 state = {
-    'num_topics': 1, #K
+    'num_topics': 1,  # K
     'n': {
-        'document_topic': None, # n_{m,k}
-        'topic_term': None, # n_{k,t}
-        'topic': None, # n_k
-        'doc': None, # n_m
+        'document_topic': None,  # n_{m,k}
+        'topic_term': None,  # n_{k,t}
+        'topic': None,  # n_k
+        'doc': None,  # n_m
     },
-    'doc_word_topic_assignment': None, # z_{m,n}
+    'doc_word_topic_assignment': None,  # z_{m,n}
     'docs': None,
     'num_docs': None,
-    'used_topics': None, # U1
-    'unused_topics': None, # U0
+    'used_topics': None,  # U1
+    'unused_topics': None,  # U0
     'tau': None,
     'vocabulary': None,
     'alpha': None,
@@ -94,14 +96,18 @@ state = {
     'gamma': None,
 }
 
-# ### State Initialization
+# State Initialization
+
 
 def initialize_integer_array(rows):
     return np.zeros(rows, dtype=int).tolist()
+
+
 def initialize_integer_matrix(rows, cols):
     return np.zeros((rows, cols), dtype=int).tolist()
 
 DUMMY_TOPIC = -1
+
 
 def initialize(state, docs):
     state['num_topics'] = 2
@@ -121,7 +127,7 @@ def initialize(state, docs):
     for doc_index, doc in enumerate(state['docs']):
         for word_index, term in enumerate(doc):
             K = state['num_topics']
-            probabilities = state['num_topics'] * [1./state['num_topics']]
+            probabilities = state['num_topics'] * [1. / state['num_topics']]
             topic = choice(list(state['used_topics']), p=probabilities)
             assert topic != DUMMY_TOPIC
             state['doc_word_topic_assignment'][doc_index][word_index] = topic
@@ -139,7 +145,8 @@ def initialize(state, docs):
         state = cleanup_topic(state, topic)
     return state
 
-# ### MCMC Step
+# MCMC Step
+
 
 def step(state):
     for doc_index in range(state['num_docs']):
@@ -154,6 +161,7 @@ def step(state):
         state = sample_tau(state)
         state = sample_hyperparameters(state)
     return state
+
 
 def step_word(state, doc_index, word_index):
     # // for the current assignment of k to a term t for word wm,n:
@@ -203,18 +211,19 @@ def step_word(state, doc_index, word_index):
     assert state['num_topics'] == len(state['used_topics'])
     return state
 
-# ### Hyperparameter Sampling
+# Hyperparameter Sampling
+
 
 def sample_hyperparameters(state):
     # http://bit.ly/1baZ3zf
     T = state['T']
-    num_samples = 10 # R
-    aalpha = 5;
-    balpha = 0.1;
-    abeta = 0.1;
-    bbeta = 0.1;
-    bgamma = 0.1 # ?
-    agamma = 5 # ?
+    num_samples = 10  # R
+    aalpha = 5
+    balpha = 0.1
+    abeta = 0.1
+    bbeta = 0.1
+    bgamma = 0.1  # ?
+    agamma = 5  # ?
 
     # for (int r = 0; r < R; r++) {
     for r in range(num_samples):
@@ -227,8 +236,8 @@ def sample_hyperparameters(state):
         state['gamma'] = gamma(agamma + K - 1 + u, 1. / bloge).rvs()
 
         # alpha: document level (Teh+06)
-        qs = 0.;
-        qw = 0.;
+        qs = 0.
+        qw = 0.
         for m, doc in enumerate(state['docs']):
             qs += bernoulli(len(doc) * 1. / (len(doc) + state['alpha'])).rvs()
             qw += np.log(beta(state['alpha'] + 1, len(doc)).rvs())
@@ -236,6 +245,7 @@ def sample_hyperparameters(state):
 
     state = update_beta(state, abeta, bbeta)
     return state
+
 
 def update_beta(state, a, b):
     # http://bit.ly/1OnKGUb
@@ -245,7 +255,7 @@ def update_beta(state, a, b):
     K = state['num_topics']
     alpha = state['beta']
     alpha0 = 0
-    prec = 1**-5
+    prec = 1 ** -5
     for _ in range(num_iterations):
         summk = 0
         summ = 0
@@ -265,9 +275,10 @@ def update_beta(state, a, b):
     state['beta'] = alpha
     return state
 
-# ### Update Topics
+# Update Topics
 
-def sample_new_topic(state, doc_index, term): # sample $\tilde k$
+
+def sample_new_topic(state, doc_index, term):  # sample $\tilde k$
     # http://bit.ly/1OcgEYI
     psum = 0
     pp = {}
@@ -284,7 +295,8 @@ def sample_new_topic(state, doc_index, term): # sample $\tilde k$
     topics, pp = zip(*pp.items())
     return choice(topics, p=np.array(pp) / psum)
 
-# ### Update Tau
+# Update Tau
+
 
 def get_mk(state):
     # http://bit.ly/1DhV4Yn
@@ -294,15 +306,16 @@ def get_mk(state):
         for doc_index, _ in enumerate(state['docs']):
             if state['n']['document_topic'][doc_index][topic] > 1:
                 mk[topic] += rand_antoniak(state['alpha'] * state['tau'][topic],
-                                    state['n']['document_topic'][doc_index][topic])
+                                           state['n']['document_topic'][doc_index][topic])
             else:
-                mk[topic] += 1#state['n']['document_topic'][doc_index][topic]
+                mk[topic] += 1  # state['n']['document_topic'][doc_index][topic]
 
     for topic in state['used_topics']:
         assert mk[topic] > 0
     mk[DUMMY_TOPIC] = state['gamma']
     assert any([_ > 0 for _ in mk.values()])
     return mk
+
 
 def sample_tau(state):
     # http://bit.ly/1FelVcL
@@ -317,13 +330,14 @@ def sample_tau(state):
     assert set(state['tau'].keys()) - state['used_topics'] == set([-1])
     return state
 
-# ### State Management
+# State Management
+
 
 def cleanup_topic(state, topic):
     assert state['n']['topic'][topic] >= 0
 
     if (state['n']['topic'][topic] > 0
-        or topic not in state['used_topics']):
+            or topic not in state['used_topics']):
         return state
     state['used_topics'].remove(topic)
     state['unused_topics'].add(topic)
@@ -344,9 +358,10 @@ def valid_state(state):
             raise Exception('Empty topic in state')
     return True
 
-# ### Other Utilities
+# Other Utilities
 
-# #### Stirling Numbers
+# Stirling Numbers
+
 
 @lru_cache(maxsize=10000)
 def stirling(N, m):
@@ -361,7 +376,7 @@ def stirling(N, m):
     elif m > N:
         return 0
     else:
-        return stirling(N-1, m-1) + (N-1) * stirling(N-1, m)
+        return stirling(N - 1, m - 1) + (N - 1) * stirling(N - 1, m)
 
 assert stirling(9, 3) == 118124
 assert stirling(9, 3) == 118124
@@ -369,6 +384,7 @@ assert stirling(0, 0) == 1
 assert stirling(1, 1) == 1
 assert stirling(2, 9) == 0
 assert stirling(9, 6) == 4536
+
 
 def normalized_stirling_numbers(nn):
     #  * stirling(nn) Gives unsigned Stirling numbers of the first
@@ -380,16 +396,17 @@ def normalized_stirling_numbers(nn):
 
 ss1 = np.array([1])
 ss2 = np.array([1, 1])
-ss10 = np.array([  3.09439754e-01,   8.75395242e-01,   1.00000000e+00,
-         6.17105824e-01,   2.29662318e-01,   5.39549757e-02,
-         8.05832694e-03,   7.41877718e-04,   3.83729854e-05,
-         8.52733009e-07]) # Verified with Teh's code
+ss10 = np.array([3.09439754e-01, 8.75395242e-01, 1.00000000e+00,
+                 6.17105824e-01, 2.29662318e-01, 5.39549757e-02,
+                 8.05832694e-03, 7.41877718e-04, 3.83729854e-05,
+                 8.52733009e-07])  # Verified with Teh's code
 
-assert np.sqrt(((normalized_stirling_numbers(1) - ss1)**2).sum()) < 0.00001
-assert np.sqrt(((normalized_stirling_numbers(2) - ss2)**2).sum()) < 0.00001
-assert np.sqrt(((normalized_stirling_numbers(10) - ss10)**2).sum()) < 0.00001
+assert np.sqrt(((normalized_stirling_numbers(1) - ss1) ** 2).sum()) < 0.00001
+assert np.sqrt(((normalized_stirling_numbers(2) - ss2) ** 2).sum()) < 0.00001
+assert np.sqrt(((normalized_stirling_numbers(10) - ss10) ** 2).sum()) < 0.00001
 
-# #### Sample from Antoniak Distribution
+# Sample from Antoniak Distribution
+
 
 def rand_antoniak(alpha, n):
     # cf http://www.cs.cmu.edu/~tss/antoniak.pdf
@@ -399,19 +416,20 @@ def rand_antoniak(alpha, n):
         p[i] *= aa
         aa *= alpha
     p = np.array(p) / np.array(p).sum()
-    sample = choice(range(1, n+1), p=p)
+    sample = choice(range(1, n + 1), p=p)
     assert sample > 0
     return sample
 
-def pretty(d, indent=0):
-   for key, value in d.iteritems():
-      print '\t' * indent + str(key)
-      if isinstance(value, dict):
-         pretty(value, indent+1)
-      else:
-         print '\t' * (indent+1) + str(value)
 
-# ### Run Me
+def pretty(d, indent=0):
+    for key, value in d.iteritems():
+        print '\t' * indent + str(key)
+        if isinstance(value, dict):
+            pretty(value, indent + 1)
+        else:
+            print '\t' * (indent + 1) + str(value)
+
+# Run Me
 
 state = initialize(state, docs)
 for i in range(10):
