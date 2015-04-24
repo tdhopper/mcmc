@@ -94,6 +94,8 @@ state = {
     'alpha': None,
     'beta': None,
     'gamma': None,
+    'topic_term_distribution': None, # Phi
+    'document_topic_distribution': None, # \heta
 }
 
 # State Initialization
@@ -160,6 +162,7 @@ def step(state):
     else:
         state = sample_tau(state)
         state = sample_hyperparameters(state)
+        state = sample_parameters(state)
     return state
 
 
@@ -209,6 +212,28 @@ def step_word(state, doc_index, word_index):
     state = cleanup_topic(state, old_topic)
     assert state
     assert state['num_topics'] == len(state['used_topics'])
+    return state
+
+# Sample parameters
+
+
+def sample_parameters(state):
+    # http://bit.ly/1zUwlrP
+    phi = defaultdict(lambda: defaultdict(int))
+    theta = defaultdict(lambda: defaultdict(int))
+    for topic in state['used_topics']:
+        for term, count in state['ss']['topic_term'][topic].iteritems():
+            term1 = count + state['beta']
+            term2 = state['ss']['topic'][topic] + state['beta'] * state['num_terms']
+            phi[topic][term] =  term1 * 1. / term2
+
+    for doc_index, _ in enumerate(state['docs']):
+        for topic, count in state['ss']['document_topic'][doc_index].iteritems():
+            term1 = count + state['alpha']
+            term2 = state['ss']['doc'][doc_index] + state['alpha'] * state['num_topics']
+            theta[doc_index][topic] = term1 * 1. / term2
+    state['topic_term_distribution']  = phi
+    state['document_topic_distribution'] = theta
     return state
 
 # Hyperparameter Sampling
