@@ -78,7 +78,7 @@ K_MAX = 100
 
 state = {
     'num_topics': 1,  # K
-    'n': {
+    'ss': {
         'document_topic': None,  # n_{m,k}
         'topic_term': None,  # n_{k,t}
         'topic': None,  # n_k
@@ -116,10 +116,10 @@ def initialize(state, docs):
     state['num_docs'] = len(state['docs'])
     state['num_terms'] = len(state['vocabulary'])
     state['doc_word_topic_assignment'] = defaultdict(lambda: defaultdict(int))
-    state['n']['document_topic'] = defaultdict(lambda: defaultdict(int))
-    state['n']['topic_term'] = defaultdict(lambda: defaultdict(int))
-    state['n']['topic'] = defaultdict(int)
-    state['n']['doc'] = defaultdict(int)
+    state['ss']['document_topic'] = defaultdict(lambda: defaultdict(int))
+    state['ss']['topic_term'] = defaultdict(lambda: defaultdict(int))
+    state['ss']['topic'] = defaultdict(int)
+    state['ss']['doc'] = defaultdict(int)
     state['used_topics'] = set(range(state['num_topics']))
     max_topics = 100
     state['unused_topics'] = set(range(state['num_topics'], max_topics))
@@ -131,10 +131,10 @@ def initialize(state, docs):
             topic = choice(list(state['used_topics']), p=probabilities)
             assert topic != DUMMY_TOPIC
             state['doc_word_topic_assignment'][doc_index][word_index] = topic
-            state['n']['document_topic'][doc_index][topic] += 1
-            state['n']['topic_term'][topic][term] += 1
-            state['n']['topic'][topic] += 1
-            state['n']['doc'][doc_index] += 1
+            state['ss']['document_topic'][doc_index][topic] += 1
+            state['ss']['topic_term'][topic][term] += 1
+            state['ss']['topic'][topic] += 1
+            state['ss']['doc'][doc_index] += 1
 
     tau_dimension = state['num_topics']
     state['tau'] = {s: (1. / state['num_topics']) for s in range(state['num_topics'])}
@@ -150,7 +150,7 @@ def initialize(state, docs):
 
 def step(state):
     for doc_index in range(state['num_docs']):
-        for word_index in range(state['n']['doc'][doc_index]):
+        for word_index in range(state['ss']['doc'][doc_index]):
             state = step_word(state, doc_index, word_index)
     assert valid_state(state)
     # TODO: if converged and L sampling iterations since last read out then
@@ -170,12 +170,12 @@ def step_word(state, doc_index, word_index):
     old_topic = state['doc_word_topic_assignment'][doc_index][word_index]
 
     term = state['docs'][doc_index][word_index]
-    state['n']['document_topic'][doc_index][old_topic] -= 1
-    state['n']['topic_term'][old_topic][term] -= 1
-    state['n']['topic'][old_topic] -= 1
-    assert state['n']['document_topic'][doc_index][old_topic] >= 0
-    assert state['n']['topic_term'][old_topic][term] >= 0
-    assert state['n']['topic'][old_topic] >= 0
+    state['ss']['document_topic'][doc_index][old_topic] -= 1
+    state['ss']['topic_term'][old_topic][term] -= 1
+    state['ss']['topic'][old_topic] -= 1
+    assert state['ss']['document_topic'][doc_index][old_topic] >= 0
+    assert state['ss']['topic_term'][old_topic][term] >= 0
+    assert state['ss']['topic'][old_topic] >= 0
 
     # // multinomial sampling using (15) with range [1,K+1]:
     # sample topic index k ̃=p(zi|.);
@@ -185,9 +185,9 @@ def step_word(state, doc_index, word_index):
     # if k ̃in [1, K] then
     if new_topic != DUMMY_TOPIC:
         # // for the new assignment of zm,n to the term t for word wm,n:
-        state['n']['document_topic'][doc_index][new_topic] += 1
-        state['n']['topic_term'][new_topic][term] += 1
-        state['n']['topic'][new_topic] += 1
+        state['ss']['document_topic'][doc_index][new_topic] += 1
+        state['ss']['topic_term'][new_topic][term] += 1
+        state['ss']['topic'][new_topic] += 1
     else:
         # // create new topic from term t in document m as first assignment:
         # k* = pop(U0)
@@ -197,9 +197,9 @@ def step_word(state, doc_index, word_index):
         state['used_topics'].add(new_topic)
         # K += 1
         state['num_topics'] += 1
-        state['n']['document_topic'][doc_index][new_topic] = 1
-        state['n']['topic_term'][new_topic][term] = 1
-        state['n']['topic'][new_topic] = 1
+        state['ss']['document_topic'][doc_index][new_topic] = 1
+        state['ss']['topic_term'][new_topic][term] = 1
+        state['ss']['topic'][new_topic] = 1
         state = sample_tau(state)
         # n_{m,k} == 1, n_k = 1, n_{k,t} = 1;
     # z_{m,n}=k^*
@@ -260,9 +260,9 @@ def update_beta(state, a, b):
         summk = 0
         summ = 0
         for m in range(M):
-            summ += digamma(K * alpha + state['n']['doc'][m])
+            summ += digamma(K * alpha + state['ss']['doc'][m])
             for k in range(K):
-                summk += digamma(alpha + state['n']['document_topic'][m][k])
+                summk += digamma(alpha + state['ss']['document_topic'][m][k])
         summ -= M * digamma(K * alpha)
         summk -= M * K * digamma(alpha)
         alpha = (a - 1 + alpha + summk) / (b + K * summ)
@@ -283,9 +283,9 @@ def sample_new_topic(state, doc_index, term):  # sample $\tilde k$
     psum = 0
     pp = {}
     for topic in state['used_topics']:
-        term1 = (state['n']['document_topic'][doc_index][topic] + state['alpha'] * state['tau'][topic])
-        term2 = (state['n']['topic_term'][topic][term] + state['beta'])
-        term3 = (state['n']['topic'][topic] + state['num_terms'] * state['beta'])
+        term1 = (state['ss']['document_topic'][doc_index][topic] + state['alpha'] * state['tau'][topic])
+        term2 = (state['ss']['topic_term'][topic][term] + state['beta'])
+        term3 = (state['ss']['topic'][topic] + state['num_terms'] * state['beta'])
         pp[topic] = (term1 * (term2 * 1. / term3))
         assert pp[topic] >= 0
         psum += pp[topic]
@@ -304,11 +304,11 @@ def get_mk(state):
     # for (int kk = 0; kk < K; kk++) {
     for topic in state['used_topics']:
         for doc_index, _ in enumerate(state['docs']):
-            if state['n']['document_topic'][doc_index][topic] > 1:
+            if state['ss']['document_topic'][doc_index][topic] > 1:
                 mk[topic] += rand_antoniak(state['alpha'] * state['tau'][topic],
-                                           state['n']['document_topic'][doc_index][topic])
+                                           state['ss']['document_topic'][doc_index][topic])
             else:
-                mk[topic] += 1  # state['n']['document_topic'][doc_index][topic]
+                mk[topic] += 1  # state['ss']['document_topic'][doc_index][topic]
 
     for topic in state['used_topics']:
         assert mk[topic] > 0
@@ -334,16 +334,16 @@ def sample_tau(state):
 
 
 def cleanup_topic(state, topic):
-    assert state['n']['topic'][topic] >= 0
+    assert state['ss']['topic'][topic] >= 0
 
-    if (state['n']['topic'][topic] > 0
+    if (state['ss']['topic'][topic] > 0
             or topic not in state['used_topics']):
         return state
     state['used_topics'].remove(topic)
     state['unused_topics'].add(topic)
-    assert sum(state['n']['topic_term'][topic].values()) == 0
-    assert state['n']['topic'][topic] == 0
-    cnts = [state['n']['document_topic'][doc_index][topic]
+    assert sum(state['ss']['topic_term'][topic].values()) == 0
+    assert state['ss']['topic'][topic] == 0
+    cnts = [state['ss']['document_topic'][doc_index][topic]
             for doc_index, _ in enumerate(state['docs'])]
     assert sum(cnts) == 0
     state['num_topics'] -= 1
@@ -352,7 +352,7 @@ def cleanup_topic(state, topic):
 
 
 def valid_state(state):
-    for topic, cnt in state['n']['topic'].items():
+    for topic, cnt in state['ss']['topic'].items():
         if topic in state['used_topics'] and cnt <= 0:
             pretty(state)
             raise Exception('Empty topic in state')
