@@ -288,7 +288,7 @@ def update_beta(state, a, b):
                 summk += digamma(alpha + state['ss']['document_topic'][doc_index][topic])
         summ -= state['num_docs'] * digamma(state['num_topics'] * alpha)
         summk -= state['num_docs'] * state['num_topics'] * digamma(alpha)
-        alpha = (a - 1 + alpha * summk) / (b + K * summ)
+        alpha = (a - 1 + alpha * summk) / (b + state['num_topics'] * summ)
         assert not np.isnan(alpha)
         if abs(alpha - alpha0) < prec:
             break
