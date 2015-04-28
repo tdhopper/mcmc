@@ -311,7 +311,6 @@ def update_beta(state, a, b):
 
 def sample_new_topic(state, doc_index, term):  # sample $\tilde k$
     # http://bit.ly/1OcgEYI
-    psum = 0
     pp = {}
     for topic in state['used_topics']:
         term1 = (state['ss']['document_topic'][doc_index][topic] + state['alpha'] * state['tau'][topic])
@@ -319,12 +318,10 @@ def sample_new_topic(state, doc_index, term):  # sample $\tilde k$
         term3 = (state['ss']['topic'][topic] + state['num_terms'] * state['beta'])
         pp[topic] = (term1 * (term2 * 1. / term3))
         assert pp[topic] >= 0
-        psum += pp[topic]
 
     pp[DUMMY_TOPIC] = state['alpha'] * state['tau'][DUMMY_TOPIC] / state['num_terms']
-    psum += pp[DUMMY_TOPIC]
     topics, pp = zip(*pp.items())
-    return choice(topics, p=np.array(pp) / psum)
+    return choice(topics, p=np.array(pp))
 
 # Update Tau
 
