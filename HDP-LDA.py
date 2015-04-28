@@ -110,16 +110,18 @@ def initialize(docs, *args, **qsargs):
         'docs': None,
         'num_docs': None,
         'used_topics': None,  # U1
-        'tau': None,
+        'tau': None, # mean of the 2nd level DP / sample from first level DP
         'vocabulary': None,
-        'alpha': None,
-        'beta': None,
-        'gamma': None,
+        'alpha': None, # Concentration parameter for second level DP (providing
+            # distribution over topics (term distributions) that will be drawn for each doc)
+        'beta': None, # Parameter of root Dirichlet distribution (over terms)
+        'gamma': None, # Concentration parameter for root DP (from which a finite number
+            # of topic/term distributions will be drawn)
         'topic_term_distribution': None, # Phi
-        'document_topic_distribution': None, # \heta
+        'document_topic_distribution': None, # Theta
     }
 
-    state['num_topics'] = 2
+    state['num_topics'] = 4
     state['docs'] = vectorize(docs,  *args, **qsargs)
     state['vocabulary'] = set(more_itertools.flatten(state['docs']))
     state['num_docs'] = len(state['docs'])
@@ -336,7 +338,7 @@ def get_mk(state):
                 mk[topic] += rand_antoniak(state['alpha'] * state['tau'][topic],
                                            state['ss']['document_topic'][doc_index][topic])
             else:
-                mk[topic] += 1  # state['ss']['document_topic'][doc_index][topic]
+                mk[topic] += state['ss']['document_topic'][doc_index][topic]
 
     for topic in state['used_topics']:
         assert mk[topic] > 0
@@ -346,6 +348,7 @@ def get_mk(state):
 
 
 def sample_tau(state):
+    # "Escobar and West's auxiliary variable method (1995)," https://lists.cs.princeton.edu/pipermail/topic-models/2011-October/001629.html
     # http://bit.ly/1FelVcL
     mk = get_mk(state)
     state['T'] = sum(mk.values()) - state['gamma']
@@ -420,7 +423,7 @@ def main():
     for line in fileinput.input(sys.argv[1:]):
         docs.append(line)
     state = initialize(docs, min_df=10)
-    for _ in range(1):
+    for _ in range(100):
         state = step(state)
         print
         print 'iteration', _
