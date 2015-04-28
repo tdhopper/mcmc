@@ -56,6 +56,7 @@ from itertools import chain
 from more_itertools import flatten
 from nltk.corpus import stopwords
 from numpy.random import choice, seed
+from random import random as uniform_random
 from repoze.lru import lru_cache
 from scipy import sparse
 from scipy.special import digamma
@@ -72,6 +73,8 @@ def vectorize(docs, *args, **qsargs):
     for row, col, count in zip(*sparse.find(data)):
         for word in range(count):
             vectorized_docs[row].append(vocabulary[col])
+    print "%s documents loaded" % num_docs
+    print "%s words in vocabulary" % len(vocabulary)
     return vectorized_docs
 
 seed(1001)
@@ -94,9 +97,9 @@ def initialize_integer_matrix(rows, cols):
 DUMMY_TOPIC = -1
 
 
-def initialize(docs):
+def initialize(docs, *args, **qsargs):
     state = {
-        'num_topics': 1,  # K
+        'num_topics': None,  # K
         'ss': {
             'document_topic': None,  # n_{m,k}
             'topic_term': None,  # n_{k,t}
@@ -117,7 +120,7 @@ def initialize(docs):
     }
 
     state['num_topics'] = 2
-    state['docs'] = vectorize(docs)
+    state['docs'] = vectorize(docs,  *args, **qsargs)
     state['vocabulary'] = set(more_itertools.flatten(state['docs']))
     state['num_docs'] = len(state['docs'])
     state['num_terms'] = len(state['vocabulary'])
@@ -183,11 +186,10 @@ def step_word(state, doc_index, word_index):
     assert state['ss']['topic'][old_topic] >= 0
 
     # // multinomial sampling using (15) with range [1,K+1]:
-    # sample topic index k ̃=p(zi|.);
+    # sample topic index k
     new_topic = sample_new_topic(state, doc_index, term)
 
     # http://bit.ly/1cXfdN4
-    # if k ̃in [1, K] then
     if new_topic != DUMMY_TOPIC:
         # // for the new assignment of zm,n to the term t for word wm,n:
         state['ss']['document_topic'][doc_index][new_topic] += 1
@@ -217,7 +219,6 @@ def step_word(state, doc_index, word_index):
     return state
 
 # Sample parameters
-
 
 def sample_parameters(state):
     # http://bit.ly/1zUwlrP
@@ -265,6 +266,7 @@ def sample_hyperparameters(state):
         # alpha: document level (Teh+06)
         qs = 0.
         qw = 0.
+
         for m, doc in enumerate(state['docs']):
             qs += bernoulli(len(doc) * 1. / (len(doc) + state['alpha'])).rvs()
             qw += np.log(beta(state['alpha'] + 1, len(doc)).rvs())
@@ -323,7 +325,6 @@ def sample_new_topic(state, doc_index, term):  # sample $\tilde k$
     return choice(topics, p=np.array(pp) / psum)
 
 # Update Tau
-
 
 def get_mk(state):
     # http://bit.ly/1DhV4Yn
@@ -398,6 +399,13 @@ def rand_antoniak(alpha, n):
     num_tables = (uniform_draws < prob_new_table).sum()
     return num_tables
 
+def choice(a, p):
+    rnd = uniform_random() * sum(p)
+    for i, w in enumerate(p):
+        rnd -= w
+        if rnd < 0:
+            return a[i]
+
 
 def pretty(d, indent=0):
     for key, value in d.iteritems():
@@ -411,17 +419,16 @@ def main():
     docs = []
     for line in fileinput.input(sys.argv[1:]):
         docs.append(line)
-    state = initialize(docs)
-    print state['docs']
-    # for i in range(1000):
-    #     state = step(state)
-    #     print
-    #     print 'iteration', i
-    #     print "\ttopics", state['used_topics']
-    #     print '\talpha', state['alpha']
-    #     print '\ttau', state['tau']
-    #     print '\tbeta', state['beta']
-    #     print '\tgamma', state['gamma']
+    state = initialize(docs, min_df=10)
+    for _ in range(1):
+        state = step(state)
+        print
+        print 'iteration', _
+        print "\ttopics", state['used_topics']
+        print '\talpha', state['alpha']
+        print '\ttau', state['tau']
+        print '\tbeta', state['beta']
+        print '\tgamma', state['gamma']
 
 
 if __name__ == '__main__':
