@@ -393,9 +393,9 @@ def rand_antoniak(alpha, n):
     # Compute here by direct simulation.
     # cf. http://www.cs.cmu.edu/~tss/antoniak.pdf
     num_tables=0
-    for customer in range(0, n):
-        prob_new_table = alpha * 1. / (alpha + customer)
-        num_tables += 1 if uniform().rvs() < prob_new_table else 0
+    uniform_draws = uniform().rvs(size=n)
+    prob_new_table = np.array([alpha * 1. / (alpha + c) for c in range(0, n)])
+    num_tables = (uniform_draws < prob_new_table).sum()
     return num_tables
 
 
