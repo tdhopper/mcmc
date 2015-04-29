@@ -393,6 +393,7 @@ def rand_antoniak(alpha, n):
     # n draws from a CRP with dispersion parameter alpha.
     # Compute here by direct simulation.
     # cf. http://www.cs.cmu.edu/~tss/antoniak.pdf
+    # cf. http://jmlr.csail.mit.edu/papers/volume10/newman09a/newman09a.pdf (appendix)
     num_tables=0
     uniform_draws = uniform().rvs(size=n)
     prob_new_table = np.array([alpha * 1. / (alpha + c) for c in range(0, n)])
