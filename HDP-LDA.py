@@ -26,7 +26,8 @@
 #      z_{m,n} &\equiv \text{Indicator variable for word } n \text{ in document } m \\\
 #      \overrightarrow{\tau} &\equiv \text{Dirichlet parameter (prior proportions)} \\
 #      p(z_i | \cdot) &\equiv \text{Probability that topic is }k\\\
-#      &\phantom{\equiv}\text{short for }p(k=z_i|\overrightarrow z_{\neg i}, \overrightarrow w, \alpha \overrightarrow\tau, \beta, \gamma, K)\\\
+#      &\phantom{\equiv}\text{short for }p(k=z_i|\overrightarrow z_{\neg i},
+#                \overrightarrow w, \alpha \overrightarrow\tau, \beta, \gamma, K)\\\
 #      U_{1,0} &\equiv \text{Unused topic indices} \\\
 #     V &\equiv \text{Number of terms t in vocabulary} \\\
 # \end{array}
@@ -51,7 +52,7 @@ import sys
 import fileinput
 
 from collections import defaultdict
-from numpy.random import choice, seed
+from numpy.random import seed
 from random import random as uniform_random
 from scipy import sparse
 from scipy.special import digamma
@@ -108,10 +109,10 @@ def initialize(docs, *args, **qsargs):
         'tau': None, # mean of the 2nd level DP / sample from first level DP
         'vocabulary': None,
         'alpha': None, # Concentration parameter for second level DP (providing
-            # distribution over topics (term distributions) that will be drawn for each doc)
+        # distribution over topics (term distributions) that will be drawn for each doc)
         'beta': None, # Parameter of root Dirichlet distribution (over terms)
         'gamma': None, # Concentration parameter for root DP (from which a finite number
-            # of topic/term distributions will be drawn)
+        # of topic/term distributions will be drawn)
         'topic_term_distribution': None, # Phi
         'document_topic_distribution': None, # Theta
     }
@@ -130,7 +131,6 @@ def initialize(docs, *args, **qsargs):
 
     for doc_index, doc in enumerate(state['docs']):
         for word_index, term in enumerate(doc):
-            K = state['num_topics']
             probabilities = state['num_topics'] * [1. / state['num_topics']]
             topic = choice(list(state['used_topics']), p=probabilities)
             assert topic != DUMMY_TOPIC
@@ -140,7 +140,6 @@ def initialize(docs, *args, **qsargs):
             state['ss']['topic'][topic] += 1
             state['ss']['doc'][doc_index] += 1
 
-    tau_dimension = state['num_topics']
     state['tau'] = {s: (1. / state['num_topics']) for s in state['used_topics']}
     state['tau'][DUMMY_TOPIC] = state['tau'].values().pop()
     state['alpha'], state['beta'], state['gamma'] = 1, 1, 1
@@ -275,7 +274,7 @@ def sample_hyperparameters(state):
 
 def update_beta(state, a, b):
     # http://bit.ly/1yX1cZq
-    i, m = 0, 0
+    i = 0
     num_iterations = 200
     alpha = state['beta']
     alpha0 = 0
@@ -319,6 +318,7 @@ def sample_new_topic(state, doc_index, term):  # sample $\tilde k$
     return choice(topics, p=np.array(pp))
 
 # Update Tau
+
 
 def get_mk(state):
     # http://bit.ly/1DhV4Yn
@@ -383,6 +383,7 @@ def valid_state(state):
 
 # Other Utilities
 
+
 def rand_antoniak(alpha, n):
     # Samples from the distribution of the number of tables used after
     # n draws from a CRP with dispersion parameter alpha.
@@ -394,6 +395,7 @@ def rand_antoniak(alpha, n):
     prob_new_table = np.array([alpha * 1. / (alpha + c) for c in range(0, n)])
     num_tables = (uniform_draws < prob_new_table).sum()
     return num_tables
+
 
 def choice(a, p):
     rnd = uniform_random() * sum(p)
@@ -410,6 +412,7 @@ def pretty(d, indent=0):
             pretty(value, indent + 1)
         else:
             print '\t' * (indent + 1) + str(value)
+
 
 def main():
     docs = []
@@ -429,4 +432,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
