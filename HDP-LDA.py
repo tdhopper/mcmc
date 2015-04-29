@@ -47,17 +47,12 @@
 
 import more_itertools
 import numpy as np
-import nltk
 import sys
 import fileinput
 
-from collections import defaultdict, namedtuple
-from itertools import chain
-from more_itertools import flatten
-from nltk.corpus import stopwords
+from collections import defaultdict
 from numpy.random import choice, seed
 from random import random as uniform_random
-from repoze.lru import lru_cache
 from scipy import sparse
 from scipy.special import digamma
 from scipy.stats import dirichlet, beta, bernoulli, gamma, uniform
