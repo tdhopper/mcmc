@@ -185,7 +185,7 @@ def step_word(state, doc_index, word_index):
     # // multinomial sampling using (15) with range [1,K+1]:
     # sample topic index k
     new_topic = sample_new_topic(state, doc_index, term)
-
+    state = cleanup_topic(state, old_topic)
     # http://bit.ly/1cXfdN4
     if new_topic != DUMMY_TOPIC:
         # // for the new assignment of zm,n to the term t for word wm,n:
@@ -209,8 +209,7 @@ def step_word(state, doc_index, word_index):
     # z_{m,n}=k^*
     assert new_topic != DUMMY_TOPIC
     state['doc_word_topic_assignment'][doc_index][word_index] = new_topic
-    assert state
-    state = cleanup_topic(state, old_topic)
+
     assert state
     assert state['num_topics'] == len(state['used_topics'])
     return state
@@ -381,7 +380,6 @@ def cleanup_topic(state, topic):
     if (state['ss']['topic'][topic] > 0
             or topic not in state['used_topics']):
         return state
-    print "topic destroyed", topic
     state['used_topics'].remove(topic)
     assert sum(state['ss']['topic_term'][topic].values()) == 0
     del state['ss']['topic_term'][topic]
