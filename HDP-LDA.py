@@ -146,6 +146,7 @@ def initialize(docs, *args, **qsargs):
     topics = set(state['used_topics'])
     for topic in topics:
         state = cleanup_topic(state, topic)
+    state = sample_tau(state)
     return state
 
 # MCMC Step
@@ -380,15 +381,19 @@ def cleanup_topic(state, topic):
     if (state['ss']['topic'][topic] > 0
             or topic not in state['used_topics']):
         return state
-
+    print "topic destroyed", topic
     state['used_topics'].remove(topic)
     assert sum(state['ss']['topic_term'][topic].values()) == 0
+    del state['ss']['topic_term'][topic]
     assert state['ss']['topic'][topic] == 0
+    del state['ss']['topic'][topic]
     cnts = [state['ss']['document_topic'][doc_index][topic]
             for doc_index, _ in enumerate(state['docs'])]
     assert sum(cnts) == 0
+    for doc_index, _ in enumerate(state['docs']):
+        del state['ss']['document_topic'][doc_index][topic]
     state['num_topics'] -= 1
-    state = sample_tau(state)
+    # state = sample_tau(state)
     return state
 
 
@@ -436,7 +441,7 @@ def main():
     docs = []
     for line in fileinput.input(sys.argv[1:]):
         docs.append(line)
-    state = initialize(docs, min_df=10)
+    state = initialize(docs, min_df=min(10, len(docs)))
     for _ in range(100):
         state = step(state)
 
