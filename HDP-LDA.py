@@ -55,7 +55,7 @@ from collections import defaultdict
 from numpy.random import seed
 from random import random as uniform_random
 from scipy import sparse
-from scipy.special import digamma
+from scipy.special import digamma, gammaln
 from scipy.stats import dirichlet, beta, bernoulli, gamma, uniform
 from sklearn.feature_extraction.text import CountVectorizer
 
@@ -73,7 +73,7 @@ def vectorize(docs, *args, **qsargs):
     print "%s words in vocabulary" % len(vocabulary)
     return vectorized_docs
 
-seed(1001)
+# seed(1001)
 
 # docs = ["holla see spot run",
 #         "run spot run"]
@@ -118,7 +118,7 @@ def initialize(docs, *args, **qsargs):
     }
 
     state['num_topics'] = 4
-    state['docs'] = vectorize(docs,  *args, **qsargs)
+    state['docs'] = vectorize(docs, *args, **qsargs)
     state['vocabulary'] = set(more_itertools.flatten(state['docs']))
     state['num_docs'] = len(state['docs'])
     state['num_terms'] = len(state['vocabulary'])
@@ -213,6 +213,24 @@ def step_word(state, doc_index, word_index):
     assert state
     assert state['num_topics'] == len(state['used_topics'])
     return state
+
+
+def _topic_score(njw_vals, beta, W):
+    term1 = sum([gammaln(njw_val + beta) for njw_val in njw_vals])
+    term2 = gammaln(sum(njw_vals) + W * beta)
+    return term1 - term2
+
+def log_model_score(state):
+    W = state['num_terms']
+    beta = state['beta']
+    T = state['num_topics']
+    njw = state['ss']['topic_term']
+
+    term1 = T * (gammaln(W * beta) -
+                 W * gammaln(beta))
+    term2 = sum([_topic_score(njw[topic_index].values(), beta, W)
+                 for topic_index in state['used_topics']])
+    return term1 + term2
 
 # Sample parameters
 
@@ -421,8 +439,10 @@ def main():
     state = initialize(docs, min_df=10)
     for _ in range(100):
         state = step(state)
+
         print
         print 'iteration', _
+        print '\tscore', log_model_score(state)
         print "\ttopics", state['used_topics']
         print '\talpha', state['alpha']
         print '\ttau', state['tau']
